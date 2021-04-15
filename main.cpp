@@ -1,10 +1,21 @@
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <cstring>
+#include <ctime>
 
 #include <evhttp.h>
 
 #include "config.h"
+
+void LogRequest(evhttp_request *req) {
+    auto uri = evhttp_request_get_uri(req);
+
+    time_t now = time(nullptr);
+    auto time = strtok(ctime(&now), "\n");
+
+    std::cout << "[" << time << "]: " << uri << std::endl;
+}
 
 void OnReq(evhttp_request *req, void *) {
     using namespace std;
@@ -20,6 +31,8 @@ void OnReq(evhttp_request *req, void *) {
 
     evbuffer_add_printf(OutBuf, "%s", content.c_str());
     evhttp_send_reply(req, HTTP_OK, "", OutBuf);
+
+    LogRequest(req);
 };
 
 int main() {
