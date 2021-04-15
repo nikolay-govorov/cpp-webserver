@@ -15,5 +15,5 @@ all: $(FILES_OBJ)
 	$(CXX) $(CXX_FLAGS) $(FILES_OBJ) -o $(PROJECT) $(addprefix -l, $(LIBS))
 
 .PHONY: clean
-clear:
+clean:
 	rm -rf $(FILES_OBJ) $(PROJECT)

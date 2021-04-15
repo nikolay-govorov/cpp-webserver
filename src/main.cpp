@@ -26,7 +26,7 @@ void OnReq(evhttp_request *req, void *) {
         return;
     }
 
-    ifstream ifs("index.html");
+    ifstream ifs("static/index.html");
     string content((istreambuf_iterator<char>(ifs)), istreambuf_iterator<char>());
 
     evbuffer_add_printf(OutBuf, "%s", content.c_str());

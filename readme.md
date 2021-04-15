@@ -5,7 +5,6 @@
 - GCC, Make
 - [Libevent](https://libevent.org)
 
-**Using:**
+**Build:**
 - Build: `make`
-- Run: `./cpp-web-server`
 - Clear: `make clear`

@@ -16,7 +16,7 @@ ServerConfig load_config() {
     using namespace std;
 
     uint16_t port = stoi(getenv("PORT", "5000"));
-    const char* address = getenv("ADDRESS", "127.0.0.1");
+    const char* address = getenv("ADDRESS", "localhost");
 
     return { address, port };
 }
