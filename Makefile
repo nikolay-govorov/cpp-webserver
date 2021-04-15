@@ -5,7 +5,7 @@ CXX_FLAGS = -Wall -std=c++11 -O3 -g0
 
 LIBS = pthread event
 
-FILES_CPP = $(wildcard *.cpp)
+FILES_CPP = $(wildcard src/*.cpp)
 FILES_OBJ = $(FILES_CPP:.cpp=.o)
 
 %.o: %.cpp
