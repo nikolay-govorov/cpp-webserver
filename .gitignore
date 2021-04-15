@@ -1,3 +1,7 @@
 # Compiled
 **/*.o
 /cpp-web-server
+
+# IDE configs
+.idea
+.vscode
