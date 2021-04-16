@@ -7,6 +7,7 @@
 struct ServerConfig {
     const char *address;
     std::uint16_t port;
+    unsigned int threads;
 };
 
 ServerConfig load_config();

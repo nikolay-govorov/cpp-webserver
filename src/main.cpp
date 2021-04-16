@@ -1,21 +1,14 @@
 #include <memory>
-#include <fstream>
 #include <iostream>
-#include <cstring>
-#include <ctime>
+#include <stdexcept>
+#include <chrono>
+#include <thread>
+#include <vector>
 
 #include <evhttp.h>
 
 #include "config.h"
-
-void LogRequest(evhttp_request *req) {
-    auto uri = evhttp_request_get_uri(req);
-
-    time_t now = time(nullptr);
-    auto time = strtok(ctime(&now), "\n");
-
-    std::cout << "[" << time << "]: " << uri << std::endl;
-}
+#include "core.h"
 
 void OnReq(evhttp_request *req, void *) {
     using namespace std;
@@ -26,37 +19,84 @@ void OnReq(evhttp_request *req, void *) {
         return;
     }
 
-    ifstream ifs("static/index.html");
-    string content((istreambuf_iterator<char>(ifs)), istreambuf_iterator<char>());
+    auto tmpl = RenderTemplate("index");
 
-    evbuffer_add_printf(OutBuf, "%s", content.c_str());
+    evbuffer_add_printf(OutBuf, "%s", tmpl.c_str());
     evhttp_send_reply(req, HTTP_OK, "", OutBuf);
 
     LogRequest(req);
 };
 
 int main() {
-    if (!event_init()) {
-        std::cerr << "Failed to init libevent." << std::endl;
-        return -1;
-    }
-
     auto config = load_config();
 
-    std::unique_ptr<evhttp, decltype(&evhttp_free)> Server(evhttp_start(config.address, config.port), &evhttp_free);
+    try {
+        std::exception_ptr InitExcept;
 
-    if (Server) {
+        bool volatile IsRun = true;
+        evutil_socket_t Socket = -1;
+
+        auto ThreadFunc = [&] {
+            try {
+                std::unique_ptr<event_base, decltype(&event_base_free)> EventBase(event_base_new(), &event_base_free);
+                if (!EventBase)
+                    throw std::runtime_error("Failed to create new base_event");
+
+                std::unique_ptr<evhttp, decltype(&evhttp_free)> EvHttp(evhttp_new(EventBase.get()), &evhttp_free);
+                if (!EvHttp)
+                    throw std::runtime_error("Failed to create new evhttp.");
+
+                evhttp_set_gencb(EvHttp.get(), OnReq, nullptr);
+
+                if (Socket == -1) {
+                    auto *BoundSock = evhttp_bind_socket_with_handle(EvHttp.get(), config.address, config.port);
+                    if (!BoundSock)
+                        throw std::runtime_error("Failed to bind server socket.");
+
+                    if ((Socket = evhttp_bound_socket_get_fd(BoundSock)) == -1) {
+                        throw std::runtime_error("Failed to get server socket for next instance.");
+                    }
+                } else if (evhttp_accept_socket(EvHttp.get(), Socket) == -1) {
+                    throw std::runtime_error("Failed to bind server socket for new instance.");
+                }
+
+                while (IsRun) {
+                    event_base_loop(EventBase.get(), EVLOOP_NONBLOCK);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            } catch (...) {
+                InitExcept = std::current_exception();
+            }
+        };
+
+        auto ThreadDeleter = [&] (std::thread *t) {
+            IsRun = false;
+            t->join();
+            delete t;
+        };
+
+        typedef std::unique_ptr<std::thread, decltype(ThreadDeleter)> ThreadPtr;
+        std::vector<ThreadPtr> Threads;
+
+        for (unsigned i = 0; i < config.threads; ++i) {
+            ThreadPtr Thread(new std::thread(ThreadFunc), ThreadDeleter);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+            if (InitExcept != std::exception_ptr()) {
+                IsRun = false;
+                std::rethrow_exception(InitExcept);
+            }
+
+            Threads.push_back(std::move(Thread));
+        }
+
         std::cout << "Server listening " << config.address << ":" << config.port << std::endl;
-    } else {
-        std::cerr << "Failed to init http server." << std::endl;
-        return -1;
-    }
 
-    evhttp_set_gencb(Server.get(), OnReq, nullptr);
-
-    if (event_dispatch() == -1) {
-        std::cerr << "Failed to run messahe loop." << std::endl;
-        return -1;
+        // The application can exit by SIGKILL
+        while (IsRun)
+            std::cin.get();
+    } catch (std::exception &e) {
+        std::cerr << "[Error]: " << e.what() << std::endl;
     }
 
     return 0;
