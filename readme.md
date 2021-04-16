@@ -3,7 +3,7 @@
 **Pre-requirements:**
 - Unix system
 - GCC, Make
-- [Libevent](https://libevent.org)
+- [LibEvent](https://libevent.org)
 
 **Build:**
 - Build: `make`

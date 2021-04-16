@@ -1,5 +1,6 @@
 # Compiled
 **/*.o
+**/*.out
 /cpp-web-server
 
 # IDE configs
